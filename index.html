@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earth Nullschool Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #map-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #nullschool-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1002;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 320px;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #e0e0e0;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .toggle-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .toggle-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .toggle-btn:hover::before {
+            left: 100%;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(135deg, #4a9eff, #0066cc);
+            border-color: #4a9eff;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(74, 158, 255, 0.3);
+        }
+
+        /* Added slider controls for new settings */
+        .slider-control {
+            margin-top: 12px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 11px;
+            color: #ccc;
+        }
+
+        .slider {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4a9eff;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(74, 158, 255, 0.4);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4a9eff;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(74, 158, 255, 0.4);
+        }
+
+        /* Improved info panel positioning to prevent overlap */
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1003;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 12px;
+            padding: 18px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            max-width: 320px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .info-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #4a9eff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-text {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #ccc;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4a9eff;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 999;
+            color: #4a9eff;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(74, 158, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #4a9eff;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Repositioned attribution to prevent overlap */
+        .attribution {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 10px;
+            color: #888;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .attribution a {
+            color: #4a9eff;
+            text-decoration: none;
+        }
+
+        .attribution a:hover {
+            text-decoration: underline;
+        }
+
+        /* Added settings panel */
+        .settings-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 12px;
+            padding: 18px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 280px;
+        }
+
+        .settings-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #e0e0e0;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        /* Added coordinate info panel with proper z-index */
+        .coordinate-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1004;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 8px;
+            padding: 12px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 11px;
+            color: #ccc;
+            max-width: 200px;
+            display: none;
+        }
+
+        /* Improved responsive design to prevent overlaps */
+        @media (max-width: 768px) {
+            .controls {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                max-width: none;
+                padding: 16px;
+            }
+
+            .toggle-buttons {
+                justify-content: center;
+            }
+
+            .info-panel {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+                max-width: none;
+            }
+
+            .settings-panel {
+                top: auto;
+                bottom: 120px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+
+            .coordinate-info {
+                bottom: 80px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+
+            .attribution {
+                top: 10px;
+                right: 10px;
+                left: auto;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .controls, .info-panel, .settings-panel {
+                padding: 12px;
+            }
+            
+            .toggle-btn {
+                padding: 8px 10px;
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Loading Earth Nullschool...</div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label class="control-label">Data Layer</label>
+                <div class="toggle-buttons">
+                    <button class="toggle-btn" data-overlay="wind">Wind</button>
+                    <button class="toggle-btn active" data-overlay="ocean">Currents</button>
+                    <button class="toggle-btn" data-overlay="waves">Waves</button>
+                    <button class="toggle-btn" data-overlay="temp">Temperature</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">Altitude/Depth</label>
+                <div class="toggle-buttons">
+                    <button class="toggle-btn active" data-height="surface">Surface</button>
+                    <button class="toggle-btn" data-height="1000hPa">1000hPa</button>
+                    <button class="toggle-btn" data-height="850hPa">850hPa</button>
+                    <button class="toggle-btn" data-height="700hPa">700hPa</button>
+                    <button class="toggle-btn" data-height="500hPa">500hPa</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Projection</label>
+                <div class="toggle-buttons">
+                    <button class="toggle-btn active" data-projection="orthographic">3D Globe</button>
+                    <button class="toggle-btn" data-projection="equirectangular">Flat Map</button>
+                    <button class="toggle-btn" data-projection="stereographic">Polar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Added advanced settings panel -->
+        <div class="settings-panel">
+            <div class="settings-title">Advanced Settings</div>
+            
+            <div class="control-group">
+                <div class="slider-control">
+                    <div class="slider-label">
+                        <span>Particle Density</span>
+                        <span id="density-value">1.0</span>
+                    </div>
+                    <input type="range" class="slider" id="density-slider" min="0.1" max="2.0" step="0.1" value="1.0">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="slider-control">
+                    <div class="slider-label">
+                        <span>Animation Speed</span>
+                        <span id="speed-value">1.0x</span>
+                    </div>
+                    <input type="range" class="slider" id="speed-slider" min="0.1" max="3.0" step="0.1" value="1.0">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Color Scheme</label>
+                <div class="toggle-buttons">
+                    <button class="toggle-btn active" data-color="default">Default</button>
+                    <button class="toggle-btn" data-color="dark">Dark</button>
+                    <button class="toggle-btn" data-color="light">Light</button>
+                </div>
+            </div>
+        </div>
+
+        <iframe 
+            id="nullschool-frame"
+            src="https://earth.nullschool.net/#current/ocean/surface/currents/orthographic=-20.00,0.00,512"
+            allowfullscreen>
+        </iframe>
+
+        <div class="info-panel">
+            <div class="info-title">
+                <div class="status-indicator"></div>
+                Current View
+            </div>
+            <div class="info-text" id="current-info">
+                Displaying ocean surface currents in 3D orthographic projection. 
+                Use the controls above to switch between different data layers and visualization options.
+            </div>
+        </div>
+
+        <!-- Added coordinate info panel -->
+        <div class="coordinate-info" id="coordinate-info">
+            <div>Lat: <span id="coord-lat">--</span></div>
+            <div>Lon: <span id="coord-lon">--</span></div>
+            <div>Value: <span id="coord-value">--</span></div>
+        </div>
+
+        <div class="attribution">
+            Data: <a href="https://earth.nullschool.net" target="_blank">earth.nullschool.net</a>
+        </div>
+    </div>
+<div id="spotlight-panel" class="panel card">
+        <div class="vert-unchanged row">
+            <div data-name="spotlight-coords">7.82° N, 89.15° E</div>
+            <span class="gap0p25"></span>
+            <button data-name="hide-spotlight" data-controls="spotlight-panel" aria-labelledby="hide-spotlight-tt" tabindex="0" data-tooltip="hide-spotlight-tt" title="Close Spotlight">
+                <svg class="md">
+                    <use href="#md-close"></use>
+                </svg>
+                <span id="hide-spotlight-tt" role="tooltip" class="">Close Spotlight</span>
+            </button>
+            <span class="gap-neg0p5"></span>
+        </div>
+        <div data-name="spotlight-a" class="vert-unchanged row">
+            <div data-name="product-label" class="row-label">Ocean Currents</div>
+            <div class="sep vert-unchanged"></div>
+            <div aria-label="300° @ 0.13 m/s">300° @ 0.13</div>
+            <span class="gap0p25"></span>
+            <button aria-labelledby="spotlight-a-units-tt" tabindex="0" data-tooltip="spotlight-a-units-tt" title="Change Units">
+                <span>m/s</span>
+                <span id="spotlight-a-units-tt" role="tooltip" class="">Change Units</span>
+            </button>
+        </div>
+        <div data-name="spotlight-b" class="vert-unchanged row">
+            <div data-name="product-label" class="row-label">HTSGW</div>
+            <div class="sep vert-unchanged"></div>
+            <div aria-label="2.13 m">2.13</div>
+            <span class="gap0p25"></span>
+            <button aria-labelledby="spotlight-b-units-tt" tabindex="0" data-tooltip="spotlight-b-units-tt" title="Change Units">
+                <span>m</span>
+                <span id="spotlight-b-units-tt" role="tooltip">Change Units</span>
+            </button>
+        </div>
+        <div data-name="spotlight-c" class="vert-unchanged row" hidden="">
+            <div data-name="product-label" class="row-label"></div>
+            <div class="sep vert-unchanged"></div>
+            <div aria-label=""></div>
+            <span class="gap0p25"></span>
+            <button aria-labelledby="spotlight-c-units-tt" tabindex="0" data-tooltip="spotlight-c-units-tt" title="Change Units" hidden="">
+                <span></span>
+                <span id="spotlight-c-units-tt" role="tooltip">Change Units</span>
+            </button>
+        </div>
+    </div>
+    <script>
+        class EarthViewer {
+            constructor() {
+                this.currentOverlay = 'ocean';
+                this.currentHeight = 'surface';
+                this.currentProjection = 'orthographic';
+                this.currentColor = 'default';
+                this.particleDensity = 1.0;
+                this.animationSpeed = 1.0;
+                this.baseUrl = 'https://earth.nullschool.net/#current';
+                this.currentLat = 0.00;
+                this.currentLon = -20.00;
+                this.currentZoom = 512;
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.updateFrame();
+                
+                // Hide loading after iframe loads
+                const iframe = document.getElementById('nullschool-frame');
+                iframe.onload = () => {
+                    setTimeout(() => {
+                        document.getElementById('loading').style.display = 'none';
+                    }, 2000);
+                };
+            }
+
+            setupEventListeners() {
+                // Overlay buttons
+                document.querySelectorAll('[data-overlay]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.setActiveButton(e.target, '[data-overlay]');
+                        this.currentOverlay = e.target.dataset.overlay;
+                        this.updateFrame();
+                        this.updateInfo();
+                    });
+                });
+
+                // Height buttons
+                document.querySelectorAll('[data-height]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.setActiveButton(e.target, '[data-height]');
+                        this.currentHeight = e.target.dataset.height;
+                        this.updateFrame();
+                        this.updateInfo();
+                    });
+                });
+
+                // Projection buttons
+                document.querySelectorAll('[data-projection]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.setActiveButton(e.target, '[data-projection]');
+                        this.currentProjection = e.target.dataset.projection;
+                        this.updateFrame();
+                        this.updateInfo();
+                    });
+                });
+
+                document.querySelectorAll('[data-color]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.setActiveButton(e.target, '[data-color]');
+                        this.currentColor = e.target.dataset.color;
+                        this.updateFrame();
+                        this.updateInfo();
+                    });
+                });
+
+                const densitySlider = document.getElementById('density-slider');
+                const speedSlider = document.getElementById('speed-slider');
+                
+                densitySlider.addEventListener('input', (e) => {
+                    this.particleDensity = parseFloat(e.target.value);
+                    document.getElementById('density-value').textContent = this.particleDensity.toFixed(1);
+                    this.updateFrame();
+                });
+
+                speedSlider.addEventListener('input', (e) => {
+                    this.animationSpeed = parseFloat(e.target.value);
+                    document.getElementById('speed-value').textContent = this.animationSpeed.toFixed(1) + 'x';
+                    this.updateFrame();
+                });
+            }
+
+            setActiveButton(clickedBtn, selector) {
+                document.querySelectorAll(selector).forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                clickedBtn.classList.add('active');
+            }
+
+            getDataType() {
+                switch(this.currentOverlay) {
+                    case 'wind': return 'wind';
+                    case 'ocean': return 'currents';
+                    case 'waves': return 'waves';
+                    case 'temp': return 'temp';
+                    default: return 'currents';
+                }
+            }
+
+            getOverlayCategory() {
+                switch(this.currentOverlay) {
+                    case 'wind': return 'wind';
+                    case 'ocean': return 'ocean';
+                    case 'waves': return 'ocean';
+                    case 'temp': return 'ocean';
+                    default: return 'ocean';
+                }
+            }
+
+            updateFrame() {
+                const category = this.getOverlayCategory();
+                const dataType = this.getDataType();
+                const height = this.currentHeight;
+                const projection = this.currentProjection;
+                
+                // Preserve current view coordinates when switching modes
+                let url = `${this.baseUrl}/${category}/${height}/${dataType}/${projection}=${this.currentLon},${this.currentLat},${this.currentZoom}`;
+                
+                console.log('[v0] Updating frame with URL:', url);
+                document.getElementById('nullschool-frame').src = url;
+                
+                // Show loading
+                document.getElementById('loading').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                }, 2500);
+            }
+
+            updateInfo() {
+                const infoElement = document.getElementById('current-info');
+                const overlayName = this.currentOverlay.charAt(0).toUpperCase() + this.currentOverlay.slice(1);
+                const heightName = this.currentHeight === 'surface' ? 'surface' : this.currentHeight;
+                const projectionName = this.getProjectionName();
+                
+                let description = this.getDescription();
+
+                infoElement.textContent = `Displaying ${description} at ${heightName} level using ${projectionName} projection. View coordinates: ${this.currentLat.toFixed(2)}°, ${this.currentLon.toFixed(2)}°. Data updates every 3 hours from global weather models.`;
+            }
+
+            getProjectionName() {
+                switch(this.currentProjection) {
+                    case 'orthographic': return '3D globe';
+                    case 'equirectangular': return 'flat map';
+                    case 'stereographic': return 'polar';
+                    default: return '3D globe';
+                }
+            }
+
+            getDescription() {
+                switch(this.currentOverlay) {
+                    case 'wind': return 'wind patterns and atmospheric circulation';
+                    case 'ocean': return 'ocean surface currents and water movement';
+                    case 'waves': return 'significant wave heights and ocean wave patterns';
+                    case 'temp': return 'sea surface temperature distribution';
+                    default: return 'ocean surface currents and water movement';
+                }
+            }
+
+            updateViewCoordinates(lat, lon, zoom) {
+                this.currentLat = lat;
+                this.currentLon = lon;
+                this.currentZoom = zoom;
+                this.updateInfo();
+            }
+        }
+
+        // Initialize the Earth Viewer when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const viewer = new EarthViewer();
+            
+            window.addEventListener('message', (event) => {
+                if (event.origin === 'https://earth.nullschool.net') {
+                    console.log('[v0] Message from Earth Nullschool:', event.data);
+                    
+                    // Handle coordinate updates from iframe
+                    if (event.data && event.data.type === 'coordinate-update') {
+                        viewer.updateViewCoordinates(
+                            event.data.lat, 
+                            event.data.lon, 
+                            event.data.zoom
+                        );
+                        
+                        // Show coordinate info
+                        const coordInfo = document.getElementById('coordinate-info');
+                        document.getElementById('coord-lat').textContent = event.data.lat.toFixed(2) + '°';
+                        document.getElementById('coord-lon').textContent = event.data.lon.toFixed(2) + '°';
+                        document.getElementById('coord-value').textContent = event.data.value || '--';
+                        coordInfo.style.display = 'block';
+                        
+                        // Hide after 5 seconds
+                        setTimeout(() => {
+                            coordInfo.style.display = 'none';
+                        }, 5000);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
